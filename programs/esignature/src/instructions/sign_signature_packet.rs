@@ -1,7 +1,7 @@
-use crate::state::agreement::*;
+use crate::state::*;
 use anchor_lang::prelude::*;
 
-pub fn sign_signature_packet(ctx: Context<SignSignaturePacket>, identifier: String) -> Result<()> {
+pub fn sign_signature_packet(ctx: Context<SignSignaturePacket>, _identifier: String) -> Result<()> {
     match ctx.accounts.agreement.add_signer() {
         Err(e) => Err(e),
         Ok(_) => ctx.accounts.packet.sign(ctx.accounts.signer.key()),

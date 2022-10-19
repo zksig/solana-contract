@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 
 pub fn create_agreement(
     ctx: Context<CreateAgreement>,
-    identifier: String,
+    _identifier: String,
     cid: String,
     description_cid: String,
     total_packets: u8,

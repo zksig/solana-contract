@@ -8,7 +8,7 @@ pub mod state;
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
-pub mod esignature {
+pub mod e_signature {
     use super::*;
 
     pub fn create_agreement(

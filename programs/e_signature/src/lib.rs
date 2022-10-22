@@ -5,7 +5,7 @@ pub mod errors;
 pub mod instructions;
 pub mod state;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("FqUDkQ5xq2XE7BecTN8u9R28xtLudP7FgCTC8vSLDEwL");
 
 #[program]
 pub mod e_signature {

@@ -1,26 +1,57 @@
 use crate::state::*;
 use anchor_lang::prelude::*;
 
-pub fn sign_signature_packet(ctx: Context<SignSignaturePacket>, _identifier: String) -> Result<()> {
-    match ctx.accounts.agreement.add_signer() {
-        Err(e) => Err(e),
-        Ok(_) => ctx.accounts.packet.sign(ctx.accounts.signer.key()),
-    }
+pub fn sign_signature_packet(ctx: Context<SignSignaturePacket>, index: u8) -> Result<()> {
+    ctx.accounts
+        .agreement
+        .add_signer()
+        .and_then(|_| {
+            ctx.accounts
+                .constraint
+                .use_constraint(ctx.accounts.signer.key())
+        })
+        .and_then(|_| {
+            ctx.accounts.profile.add_signature();
+            ctx.accounts.packet.setup_and_sign(
+                ctx.accounts.agreement.key(),
+                index,
+                ctx.accounts.signer.key(),
+                *ctx.bumps.get("packet").unwrap(),
+            )
+        })
 }
 
 #[derive(Accounts)]
-#[instruction(identifier: String)]
+#[instruction(index: u8)]
 pub struct SignSignaturePacket<'info> {
     #[account(
-        mut,
-        seeds = [b"p", agreement.key().as_ref(), identifier.as_bytes()],
-        bump = packet.bump
+        init,
+        payer = signer,
+        space = ESignaturePacket::MAXIMUM_SIZE + 8,
+        seeds = [b"packet", profile.signatures_count.to_string().as_bytes(), signer.key().as_ref()],
+        bump
     )]
     pub packet: Account<'info, ESignaturePacket>,
+
+    #[account(
+        mut,
+        seeds = [b"profile", signer.key().as_ref()],
+        bump = profile.bump
+    )]
+    pub profile: Account<'info, Profile>,
+
+    #[account(
+        mut,
+        seeds = [b"constraint", index.to_string().as_bytes(), agreement.key().as_ref()],
+        bump = constraint.bump
+    )]
+    pub constraint: Account<'info, SignatureConstraint>,
 
     #[account(mut)]
     pub agreement: Account<'info, Agreement>,
 
     #[account(mut)]
     pub signer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }

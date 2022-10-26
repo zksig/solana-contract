@@ -1,22 +1,22 @@
 use crate::state::agreement::*;
+use crate::state::profile::*;
 use anchor_lang::prelude::*;
 
 pub fn create_agreement(
     ctx: Context<CreateAgreement>,
-    _identifier: String,
+    identifier: String,
     cid: String,
     description_cid: String,
     total_packets: u8,
-) -> Result<Pubkey> {
-    match ctx.accounts.agreement.setup(
-        ctx.accounts.originator.key(),
+) -> Result<()> {
+    ctx.accounts.profile.add_agreement();
+    ctx.accounts.agreement.setup(
+        ctx.accounts.profile.key(),
+        identifier,
         cid,
         description_cid,
         total_packets,
-    ) {
-        Err(e) => Err(e),
-        Ok(_) => Ok(ctx.accounts.agreement.key()),
-    }
+    )
 }
 
 #[derive(Accounts)]
@@ -24,15 +24,22 @@ pub fn create_agreement(
 pub struct CreateAgreement<'info> {
     #[account(
         init,
-        payer = originator,
+        payer = owner,
         space = Agreement::MAXIMUM_SIZE + 8,
-        seeds = [b"a", identifier.as_bytes(), originator.key().as_ref()],
+        seeds = [b"agreement", profile.agreements_count.to_string().as_bytes(), profile.key().as_ref()],
         bump
     )]
     pub agreement: Account<'info, Agreement>,
 
+    #[account(
+        mut,
+        seeds = [b"profile", owner.key().as_ref()],
+        bump = profile.bump
+    )]
+    pub profile: Account<'info, Profile>,
+
     #[account(mut)]
-    pub originator: Signer<'info>,
+    pub owner: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }

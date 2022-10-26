@@ -4,24 +4,18 @@ use anchor_lang::prelude::*;
 #[account]
 pub struct ESignaturePacket {
     agreement: Pubkey,
-    identifier: String,
-    signer: Option<Pubkey>,
+    index: u8,
+    signer: Pubkey,
     signed: bool,
     pub bump: u8,
 }
 
 impl ESignaturePacket {
-    pub const MAXIMUM_SIZE: usize = 32 + 4 + 32 + 32 + 1 + 1;
+    pub const MAXIMUM_SIZE: usize = 32 + 1 + 32 + 1 + 1;
 
-    pub fn setup(
-        &mut self,
-        agreement: Pubkey,
-        identifier: String,
-        signer: Option<Pubkey>,
-        bump: u8,
-    ) -> Result<()> {
+    pub fn setup(&mut self, agreement: Pubkey, index: u8, signer: Pubkey, bump: u8) -> Result<()> {
         self.agreement = agreement.key();
-        self.identifier = identifier;
+        self.index = index;
         self.bump = bump;
         self.signer = signer;
         self.signed = false;
@@ -29,9 +23,25 @@ impl ESignaturePacket {
         Ok(())
     }
 
+    pub fn setup_and_sign(
+        &mut self,
+        agreement: Pubkey,
+        index: u8,
+        signer: Pubkey,
+        bump: u8,
+    ) -> Result<()> {
+        self.agreement = agreement.key();
+        self.index = index;
+        self.bump = bump;
+        self.signer = signer;
+        self.signed = true;
+
+        Ok(())
+    }
+
     pub fn sign(&mut self, signer: Pubkey) -> Result<()> {
         require_eq!(
-            self.signer.get_or_insert(signer).key(),
+            self.signer.key(),
             signer.key(),
             ZKSigError::MismatchedSigner
         );

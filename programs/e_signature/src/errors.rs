@@ -5,4 +5,5 @@ pub enum ZKSigError {
     UnexpectedError,
     NonPendingAgreement,
     MismatchedSigner,
+    UsedConstraint,
 }

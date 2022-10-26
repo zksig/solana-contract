@@ -11,7 +11,8 @@ enum AgreementStatus {
 
 #[account]
 pub struct Agreement {
-    pub originator: Pubkey,
+    pub profile: Pubkey,
+    identifier: String,
     cid: String,
     description_cid: String,
     status: AgreementStatus,
@@ -20,16 +21,18 @@ pub struct Agreement {
 }
 
 impl Agreement {
-    pub const MAXIMUM_SIZE: usize = 32 + 4 + 64 + 4 + 64 + 1 + 1 + 1;
+    pub const MAXIMUM_SIZE: usize = 32 + 4 + 64 + 4 + 64 + 4 + 64 + 1 + 1 + 1;
 
     pub fn setup(
         &mut self,
-        originator: Pubkey,
+        profile: Pubkey,
+        identifier: String,
         cid: String,
         description_cid: String,
         total_packets: u8,
     ) -> Result<()> {
-        self.originator = originator;
+        self.profile = profile;
+        self.identifier = identifier;
         self.cid = cid;
         self.description_cid = description_cid;
         self.status = AgreementStatus::PENDING;

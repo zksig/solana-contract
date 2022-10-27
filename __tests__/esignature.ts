@@ -7,6 +7,7 @@ import { ESignature } from "../target/types/e_signature";
 const provider = anchor.AnchorProvider.env();
 anchor.setProvider(provider);
 const program = anchor.workspace.ESignature as Program<ESignature>;
+const cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
 
 describe("ESignature Contract", () => {
   let profile: PublicKey;
@@ -114,10 +115,8 @@ describe("ESignature Contract", () => {
   });
 
   it("creates an agreements", async () => {
-    const cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
-
     await program.methods
-      .createAgreement("My Agreementt", cid, cid, 2)
+      .createAgreement("My Agreementt", cid, cid, cid, 2)
       .accounts({
         agreement,
         profile,
@@ -203,7 +202,7 @@ describe("ESignature Contract", () => {
     expect(
       async () =>
         await employeeProgram.methods
-          .signSignaturePacket(0)
+          .signSignaturePacket(0, cid)
           .accounts({
             packet,
             agreement,
@@ -226,7 +225,7 @@ describe("ESignature Contract", () => {
     );
 
     await managerProgram.methods
-      .signSignaturePacket(0)
+      .signSignaturePacket(0, cid)
       .accounts({
         packet,
         agreement,
@@ -278,7 +277,7 @@ describe("ESignature Contract", () => {
     expect(
       async () =>
         await managerProgram.methods
-          .signSignaturePacket(0)
+          .signSignaturePacket(0, cid)
           .accounts({
             packet,
             agreement,
@@ -301,7 +300,7 @@ describe("ESignature Contract", () => {
     );
 
     await employeeProgram.methods
-      .signSignaturePacket(1)
+      .signSignaturePacket(1, cid)
       .accounts({
         packet,
         agreement,
@@ -353,7 +352,7 @@ describe("ESignature Contract", () => {
     expect(
       async () =>
         await employeeProgram.methods
-          .signSignaturePacket(1)
+          .signSignaturePacket(1, cid)
           .accounts({
             packet,
             agreement,

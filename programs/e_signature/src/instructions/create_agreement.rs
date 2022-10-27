@@ -6,6 +6,7 @@ pub fn create_agreement(
     ctx: Context<CreateAgreement>,
     identifier: String,
     cid: String,
+    encrypted_cid: String,
     description_cid: String,
     total_packets: u8,
 ) -> Result<()> {
@@ -14,6 +15,7 @@ pub fn create_agreement(
         ctx.accounts.profile.key(),
         identifier,
         cid,
+        encrypted_cid,
         description_cid,
         total_packets,
     )

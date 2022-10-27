@@ -1,7 +1,11 @@
 use crate::state::*;
 use anchor_lang::prelude::*;
 
-pub fn sign_signature_packet(ctx: Context<SignSignaturePacket>, index: u8) -> Result<()> {
+pub fn sign_signature_packet(
+    ctx: Context<SignSignaturePacket>,
+    index: u8,
+    encrypted_cid: String,
+) -> Result<()> {
     ctx.accounts
         .agreement
         .add_signer()
@@ -15,6 +19,7 @@ pub fn sign_signature_packet(ctx: Context<SignSignaturePacket>, index: u8) -> Re
             ctx.accounts.packet.setup_and_sign(
                 ctx.accounts.agreement.key(),
                 index,
+                encrypted_cid,
                 ctx.accounts.signer.key(),
                 *ctx.bumps.get("packet").unwrap(),
             )

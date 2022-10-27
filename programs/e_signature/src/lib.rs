@@ -19,10 +19,18 @@ pub mod e_signature {
         ctx: Context<CreateAgreement>,
         identifier: String,
         cid: String,
+        encrypted_cid: String,
         description_cid: String,
         total_packets: u8,
     ) -> Result<()> {
-        instructions::create_agreement(ctx, identifier, cid, description_cid, total_packets)
+        instructions::create_agreement(
+            ctx,
+            identifier,
+            cid,
+            encrypted_cid,
+            description_cid,
+            total_packets,
+        )
     }
 
     pub fn create_signature_constraint(
@@ -42,7 +50,11 @@ pub mod e_signature {
         instructions::reject_agreement(ctx)
     }
 
-    pub fn sign_signature_packet(ctx: Context<SignSignaturePacket>, index: u8) -> Result<()> {
-        instructions::sign_signature_packet(ctx, index)
+    pub fn sign_signature_packet(
+        ctx: Context<SignSignaturePacket>,
+        index: u8,
+        encrypted_cid: String,
+    ) -> Result<()> {
+        instructions::sign_signature_packet(ctx, index, encrypted_cid)
     }
 }

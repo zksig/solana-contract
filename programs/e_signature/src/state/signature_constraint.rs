@@ -9,10 +9,12 @@ pub struct SignatureConstraint {
     signer: Option<Pubkey>,
     used: bool,
     pub bump: u8,
+
+    reserved: [u8; 64],
 }
 
 impl SignatureConstraint {
-    pub const MAXIMUM_SIZE: usize = 32 + 1 + 4 + 64 + 1 + 32 + 1 + 1;
+    pub const MAXIMUM_SIZE: usize = 32 + 1 + 4 + 64 + 1 + 32 + 1 + 1 + 64;
 
     pub fn create(
         &mut self,

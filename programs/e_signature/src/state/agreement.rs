@@ -14,26 +14,31 @@ pub struct Agreement {
     pub profile: Pubkey,
     identifier: String,
     cid: String,
+    encrypted_cid: String,
     description_cid: String,
     status: AgreementStatus,
     signed_packets: u8,
     total_packets: u8,
+
+    reserved: [u8; 128],
 }
 
 impl Agreement {
-    pub const MAXIMUM_SIZE: usize = 32 + 4 + 64 + 4 + 64 + 4 + 64 + 1 + 1 + 1;
+    pub const MAXIMUM_SIZE: usize = 32 + (4 + 64) * 4 + 1 + 1 + 1 + 128;
 
     pub fn setup(
         &mut self,
         profile: Pubkey,
         identifier: String,
         cid: String,
+        encrypted_cid: String,
         description_cid: String,
         total_packets: u8,
     ) -> Result<()> {
         self.profile = profile;
         self.identifier = identifier;
         self.cid = cid;
+        self.encrypted_cid = encrypted_cid;
         self.description_cid = description_cid;
         self.status = AgreementStatus::PENDING;
         self.signed_packets = 0;

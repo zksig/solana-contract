@@ -19,6 +19,7 @@ pub fn sign_signature_packet(
             ctx.accounts.packet.setup_and_sign(
                 ctx.accounts.agreement.key(),
                 index,
+                ctx.accounts.constraint.identifier.clone(),
                 encrypted_cid,
                 ctx.accounts.signer.key(),
                 *ctx.bumps.get("packet").unwrap(),

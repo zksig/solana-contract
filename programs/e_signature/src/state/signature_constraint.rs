@@ -5,7 +5,7 @@ use anchor_lang::prelude::*;
 pub struct SignatureConstraint {
     pub agreement: Pubkey,
     index: u8,
-    identifier: String,
+    pub identifier: String,
     signer: Option<Pubkey>,
     used: bool,
     pub bump: u8,

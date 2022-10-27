@@ -2,14 +2,14 @@
 seeds = false
 skip-lint = false
 [programs.localnet]
-e_signature = "FqUDkQ5xq2XE7BecTN8u9R28xtLudP7FgCTC8vSLDEwL"
+e_signature = "EqsfiqKZqSVk6r8mMBSsad6hMaYxy1pLqkfG2w6St9Yf"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
-wallet = "/home/ryan/.config/solana/id.json"
+cluster = "devnet"
+wallet = "/home/ryan/.config/solana/zksig.json"
 
 [scripts]
 test = "yarn run test"

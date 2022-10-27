@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 pub struct ESignaturePacket {
     agreement: Pubkey,
     index: u8,
+    identifier: String,
     encrypted_cid: String,
     signer: Pubkey,
     signed: bool,
@@ -13,18 +14,20 @@ pub struct ESignaturePacket {
 }
 
 impl ESignaturePacket {
-    pub const MAXIMUM_SIZE: usize = 32 + 1 + 4 + 64 + 32 + 1 + 1 + 128;
+    pub const MAXIMUM_SIZE: usize = 32 + 1 + 4 + 64 + 4 + 64 + 32 + 1 + 1 + 128;
 
     pub fn setup_and_sign(
         &mut self,
         agreement: Pubkey,
         index: u8,
+        identifier: String,
         encrypted_cid: String,
         signer: Pubkey,
         bump: u8,
     ) -> Result<()> {
         self.agreement = agreement.key();
         self.index = index;
+        self.identifier = identifier;
         self.encrypted_cid = encrypted_cid;
         self.signer = signer;
         self.signed = true;

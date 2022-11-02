@@ -1,40 +1,37 @@
 use crate::state::*;
-use anchor_lang::prelude::*;
+use anchor_lang::{
+    prelude::*,
+    solana_program::{
+        instruction::Instruction,
+        sysvar::instructions::{load_instruction_at_checked, ID as IX_ID},
+    },
+};
 
 pub fn sign_signature_packet(
     ctx: Context<SignSignaturePacket>,
-    index: u8,
+    owner: Pubkey,
+    signature: &[u8],
     encrypted_cid: String,
 ) -> Result<()> {
+    let ix: Instruction = load_instruction_at_checked(0, &ctx.accounts.ix_sysvar)?;
+
     ctx.accounts
-        .agreement
-        .add_signer()
-        .and_then(|_| {
-            ctx.accounts
-                .constraint
-                .use_constraint(ctx.accounts.signer.key())
-        })
+        .packet
+        .verify_signature(&ix.data, owner, signature)
+        .and_then(|_| ctx.accounts.agreement.add_signer())
         .and_then(|_| {
             ctx.accounts.profile.add_signature();
-            ctx.accounts.packet.setup_and_sign(
-                ctx.accounts.agreement.key(),
-                index,
-                ctx.accounts.constraint.identifier.clone(),
-                encrypted_cid,
-                ctx.accounts.signer.key(),
-                *ctx.bumps.get("packet").unwrap(),
-            )
+            ctx.accounts
+                .packet
+                .sign(ctx.accounts.signer.key(), encrypted_cid)
         })
 }
 
 #[derive(Accounts)]
-#[instruction(index: u8)]
+#[instruction(identifier: String)]
 pub struct SignSignaturePacket<'info> {
     #[account(
-        init,
-        payer = signer,
-        space = ESignaturePacket::MAXIMUM_SIZE + 8,
-        seeds = [b"packet", profile.signatures_count.to_string().as_bytes(), signer.key().as_ref()],
+        seeds = [b"packet", identifier.as_bytes(), agreement.key().as_ref()],
         bump
     )]
     pub packet: Account<'info, ESignaturePacket>,
@@ -46,18 +43,15 @@ pub struct SignSignaturePacket<'info> {
     )]
     pub profile: Account<'info, Profile>,
 
-    #[account(
-        mut,
-        seeds = [b"constraint", index.to_string().as_bytes(), agreement.key().as_ref()],
-        bump = constraint.bump
-    )]
-    pub constraint: Account<'info, SignatureConstraint>,
-
     #[account(mut)]
     pub agreement: Account<'info, Agreement>,
 
     #[account(mut)]
     pub signer: Signer<'info>,
+
+    /// CHECK: System address
+    #[account(address = IX_ID)]
+    pub ix_sysvar: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
 }

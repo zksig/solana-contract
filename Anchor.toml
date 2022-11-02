@@ -8,8 +8,8 @@ e_signature = "EqsfiqKZqSVk6r8mMBSsad6hMaYxy1pLqkfG2w6St9Yf"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
-wallet = "/home/ryan/.config/solana/zksig.json"
+cluster = "localnet"
+wallet = "/home/ryan/.config/solana/id.json"
 
 [scripts]
 test = "yarn run test"

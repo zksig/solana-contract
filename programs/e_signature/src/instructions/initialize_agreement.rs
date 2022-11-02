@@ -2,8 +2,8 @@ use crate::state::agreement::*;
 use crate::state::profile::*;
 use anchor_lang::prelude::*;
 
-pub fn create_agreement(
-    ctx: Context<CreateAgreement>,
+pub fn initialize_agreement(
+    ctx: Context<InitializeAgreement>,
     identifier: String,
     cid: String,
     encrypted_cid: String,
@@ -11,7 +11,7 @@ pub fn create_agreement(
     total_packets: u8,
 ) -> Result<()> {
     ctx.accounts.profile.add_agreement();
-    ctx.accounts.agreement.setup(
+    ctx.accounts.agreement.initialize(
         ctx.accounts.profile.key(),
         identifier,
         cid,
@@ -23,7 +23,7 @@ pub fn create_agreement(
 
 #[derive(Accounts)]
 #[instruction(identifier: String)]
-pub struct CreateAgreement<'info> {
+pub struct InitializeAgreement<'info> {
     #[account(
         init,
         payer = owner,

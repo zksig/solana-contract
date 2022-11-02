@@ -26,7 +26,7 @@ pub struct Agreement {
 impl Agreement {
     pub const MAXIMUM_SIZE: usize = 32 + (4 + 64) * 4 + 1 + 1 + 1 + 128;
 
-    pub fn setup(
+    pub fn initialize(
         &mut self,
         profile: Pubkey,
         identifier: String,

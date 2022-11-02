@@ -15,15 +15,15 @@ pub mod e_signature {
         instructions::create_profile(ctx)
     }
 
-    pub fn create_agreement(
-        ctx: Context<CreateAgreement>,
+    pub fn initialize_agreement(
+        ctx: Context<InitializeAgreement>,
         identifier: String,
         cid: String,
         encrypted_cid: String,
         description_cid: String,
         total_packets: u8,
     ) -> Result<()> {
-        instructions::create_agreement(
+        instructions::initialize_agreement(
             ctx,
             identifier,
             cid,
@@ -31,15 +31,6 @@ pub mod e_signature {
             description_cid,
             total_packets,
         )
-    }
-
-    pub fn create_signature_constraint(
-        ctx: Context<CreateSignatureConstraint>,
-        index: u8,
-        identifier: String,
-        signer: Option<Pubkey>,
-    ) -> Result<()> {
-        instructions::create_signature_constraint(ctx, index, identifier, signer)
     }
 
     pub fn approve_agreement(ctx: Context<ApproveAgreement>) -> Result<()> {
@@ -50,11 +41,21 @@ pub mod e_signature {
         instructions::reject_agreement(ctx)
     }
 
+    pub fn initialize_signature_packet(
+        ctx: Context<InitializeSignaturePacket>,
+        identifier: String,
+        signer: Option<Pubkey>,
+    ) -> Result<()> {
+        instructions::initialize_signature_packet(ctx, identifier, signer)
+    }
+
     pub fn sign_signature_packet(
         ctx: Context<SignSignaturePacket>,
-        index: u8,
+        identifier: String,
+        signature: [u8; 64],
         encrypted_cid: String,
+        owner: Pubkey,
     ) -> Result<()> {
-        instructions::sign_signature_packet(ctx, index, encrypted_cid)
+        instructions::sign_signature_packet(ctx, owner, &signature.as_slice(), encrypted_cid)
     }
 }

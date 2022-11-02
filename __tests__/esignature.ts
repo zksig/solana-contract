@@ -1,7 +1,9 @@
+import fs from "fs/promises";
 import { describe, expect, it, beforeAll } from "@jest/globals";
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
 import { PublicKey, Keypair } from "@solana/web3.js";
+import * as ed from "@noble/ed25519";
 import { ESignature } from "../target/types/e_signature";
 
 const provider = anchor.AnchorProvider.env();
@@ -10,20 +12,28 @@ const program = anchor.workspace.ESignature as Program<ESignature>;
 const cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
 
 describe("ESignature Contract", () => {
+  let key: Keypair;
   let profile: PublicKey;
   let agreement: PublicKey;
 
   let managerSigner: Keypair;
   let managerProgram: Program<ESignature>;
   let managerProfile: PublicKey;
-  let managerConstraint: PublicKey;
+  let managerPacket: PublicKey;
 
   let employeeSigner: Keypair;
   let employeeProgram: Program<ESignature>;
   let employeeProfile: PublicKey;
-  let employeeConstraint: PublicKey;
+  let employeePacket: PublicKey;
 
   beforeAll(async () => {
+    key = await Keypair.fromSecretKey(
+      Buffer.from(
+        JSON.parse(
+          await fs.readFile(process.env.ANCHOR_WALLET, { encoding: "utf-8" })
+        )
+      )
+    );
     [profile] = await PublicKey.findProgramAddress(
       [
         anchor.utils.bytes.utf8.encode("profile"),
@@ -51,10 +61,10 @@ describe("ESignature Contract", () => {
       ],
       program.programId
     );
-    [managerConstraint] = await PublicKey.findProgramAddress(
+    [managerPacket] = await PublicKey.findProgramAddress(
       [
-        anchor.utils.bytes.utf8.encode("constraint"),
-        anchor.utils.bytes.utf8.encode("0"),
+        anchor.utils.bytes.utf8.encode("packet"),
+        anchor.utils.bytes.utf8.encode("manager"),
         agreement.toBuffer(),
       ],
       program.programId
@@ -70,10 +80,10 @@ describe("ESignature Contract", () => {
       ],
       program.programId
     );
-    [employeeConstraint] = await PublicKey.findProgramAddress(
+    [employeePacket] = await PublicKey.findProgramAddress(
       [
-        anchor.utils.bytes.utf8.encode("constraint"),
-        anchor.utils.bytes.utf8.encode("1"),
+        anchor.utils.bytes.utf8.encode("packet"),
+        anchor.utils.bytes.utf8.encode("employee"),
         agreement.toBuffer(),
       ],
       program.programId
@@ -116,7 +126,7 @@ describe("ESignature Contract", () => {
 
   it("creates an agreements", async () => {
     await program.methods
-      .createAgreement("My Agreementt", cid, cid, cid, 2)
+      .initializeAgreement("My Agreementt", cid, cid, cid, 2)
       .accounts({
         agreement,
         profile,
@@ -145,113 +155,153 @@ describe("ESignature Contract", () => {
     );
   });
 
-  it("creates signature constraints", async () => {
+  it("creates signature packet", async () => {
     await program.methods
-      .createSignatureConstraint(0, "manager", managerSigner.publicKey)
+      .initializeSignaturePacket("manager", managerSigner.publicKey)
       .accounts({
-        constraint: managerConstraint,
+        packet: managerPacket,
         agreement,
-        profile,
         owner: provider.wallet.publicKey,
       })
       .rpc();
 
     await program.methods
-      .createSignatureConstraint(1, "employee", null)
+      .initializeSignaturePacket("employee", null)
       .accounts({
-        constraint: employeeConstraint,
+        packet: employeePacket,
         agreement,
-        profile,
         owner: provider.wallet.publicKey,
       })
       .rpc();
 
-    expect(
-      await program.account.signatureConstraint.fetch(managerConstraint)
-    ).toEqual(
+    expect(await program.account.eSignaturePacket.fetch(managerPacket)).toEqual(
       expect.objectContaining({
         agreement,
-        index: 0,
         signer: managerSigner.publicKey,
-        used: false,
+        identifier: "manager",
+        encryptedCid: null,
+        signed: false,
       })
     );
 
     expect(
-      await program.account.signatureConstraint.fetch(employeeConstraint)
+      await program.account.eSignaturePacket.fetch(employeePacket)
     ).toEqual(
       expect.objectContaining({
         agreement,
-        index: 1,
         signer: null,
-        used: false,
+        identifier: "employee",
+        encryptedCid: null,
+        signed: false,
       })
     );
   });
 
   it("fails to sign a signature packet when there is a bad signer", async () => {
-    const [packet] = await PublicKey.findProgramAddress(
-      [
-        anchor.utils.bytes.utf8.encode("packet"),
-        anchor.utils.bytes.utf8.encode("0"),
-        employeeSigner.publicKey.toBuffer(),
-      ],
-      program.programId
+    const signature = await ed.sign(
+      Buffer.from(`manager ${agreement.toString()}`),
+      key.secretKey.slice(0, 32)
     );
 
-    expect(
+    return expect(
       async () =>
         await employeeProgram.methods
-          .signSignaturePacket(0, cid)
+          .signSignaturePacket(
+            // @ts-ignore
+            "manager",
+            signature,
+            cid,
+            provider.publicKey
+          )
           .accounts({
-            packet,
+            packet: managerPacket,
             agreement,
-            constraint: managerConstraint,
             profile: employeeProfile,
+            ixSysvar: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
             signer: employeeSigner.publicKey,
           })
+          .preInstructions([
+            anchor.web3.Ed25519Program.createInstructionWithPublicKey({
+              signature,
+              publicKey: key.publicKey.toBuffer(),
+              message: Buffer.from(`manager ${agreement.toString()}`),
+            }),
+          ])
           .rpc()
     ).rejects.toThrow("MismatchedSigner");
   });
 
-  it("can sign a signature packet when there is a signer constraint", async () => {
-    const [packet] = await PublicKey.findProgramAddress(
-      [
-        anchor.utils.bytes.utf8.encode("packet"),
-        anchor.utils.bytes.utf8.encode("0"),
-        managerSigner.publicKey.toBuffer(),
-      ],
-      program.programId
+  it("fails to sign a signature packet when there is a bad signature", async () => {
+    const signature = await ed.sign(
+      Buffer.from(`manager ${agreement.toString()}`),
+      managerSigner.secretKey.slice(0, 32)
+    );
+
+    return expect(
+      async () =>
+        await employeeProgram.methods
+          .signSignaturePacket(
+            // @ts-ignore
+            "manager",
+            signature,
+            cid,
+            provider.publicKey
+          )
+          .accounts({
+            packet: managerPacket,
+            agreement,
+            profile: employeeProfile,
+            ixSysvar: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
+            signer: employeeSigner.publicKey,
+          })
+          .preInstructions([
+            anchor.web3.Ed25519Program.createInstructionWithPublicKey({
+              signature,
+              publicKey: managerSigner.publicKey.toBuffer(),
+              message: Buffer.from(`manager ${agreement.toString()}`),
+            }),
+          ])
+          .rpc()
+    ).rejects.toThrow("SignatureVerificationError");
+  });
+
+  it("can sign a signature packet", async () => {
+    const signature = await ed.sign(
+      Buffer.from(`manager ${agreement.toString()}`),
+      key.secretKey.slice(0, 32)
     );
 
     await managerProgram.methods
-      .signSignaturePacket(0, cid)
+      .signSignaturePacket(
+        // @ts-ignore
+        "manager",
+        signature,
+        cid,
+        provider.publicKey
+      )
       .accounts({
-        packet,
+        packet: managerPacket,
         agreement,
-        constraint: managerConstraint,
         profile: managerProfile,
+        ixSysvar: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
         signer: managerSigner.publicKey,
       })
+      .preInstructions([
+        anchor.web3.Ed25519Program.createInstructionWithPublicKey({
+          signature,
+          publicKey: key.publicKey.toBuffer(),
+          message: Buffer.from(`manager ${agreement.toString()}`),
+        }),
+      ])
       .rpc();
 
-    expect(await program.account.eSignaturePacket.fetch(packet)).toEqual(
+    expect(await program.account.eSignaturePacket.fetch(managerPacket)).toEqual(
       expect.objectContaining({
         agreement,
         signer: managerSigner.publicKey,
-        index: 0,
+        identifier: "manager",
+        encryptedCid: cid,
         signed: true,
-      })
-    );
-
-    expect(
-      await program.account.signatureConstraint.fetch(managerConstraint)
-    ).toEqual(
-      expect.objectContaining({
-        agreement,
-        index: 0,
-        signer: managerSigner.publicKey,
-        used: true,
       })
     );
 
@@ -264,69 +314,45 @@ describe("ESignature Contract", () => {
     );
   });
 
-  it("fails to sign a signature packet when its already been signed", async () => {
-    const [packet] = await PublicKey.findProgramAddress(
-      [
-        anchor.utils.bytes.utf8.encode("packet"),
-        anchor.utils.bytes.utf8.encode("1"),
-        managerSigner.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
-
-    expect(
-      async () =>
-        await managerProgram.methods
-          .signSignaturePacket(0, cid)
-          .accounts({
-            packet,
-            agreement,
-            constraint: managerConstraint,
-            profile: managerProfile,
-            signer: managerSigner.publicKey,
-          })
-          .rpc()
-    ).rejects.toThrow("UsedConstraint");
-  });
-
-  it("can sign a signature packet when there is no signer constraint", async () => {
-    const [packet] = await PublicKey.findProgramAddress(
-      [
-        anchor.utils.bytes.utf8.encode("packet"),
-        anchor.utils.bytes.utf8.encode("0"),
-        employeeSigner.publicKey.toBuffer(),
-      ],
-      program.programId
+  it("can sign a signature packet", async () => {
+    const signature = await ed.sign(
+      Buffer.from(`employee ${agreement.toString()}`),
+      key.secretKey.slice(0, 32)
     );
 
     await employeeProgram.methods
-      .signSignaturePacket(1, cid)
+      .signSignaturePacket(
+        // @ts-ignore
+        "employee",
+        signature,
+        cid,
+        provider.publicKey
+      )
       .accounts({
-        packet,
+        packet: employeePacket,
         agreement,
-        constraint: employeeConstraint,
         profile: employeeProfile,
+        ixSysvar: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
         signer: employeeSigner.publicKey,
       })
+      .preInstructions([
+        anchor.web3.Ed25519Program.createInstructionWithPublicKey({
+          signature,
+          publicKey: key.publicKey.toBuffer(),
+          message: Buffer.from(`employee ${agreement.toString()}`),
+        }),
+      ])
       .rpc();
 
-    expect(await program.account.eSignaturePacket.fetch(packet)).toEqual(
-      expect.objectContaining({
-        agreement,
-        signer: employeeSigner.publicKey,
-        index: 1,
-        signed: true,
-      })
-    );
-
     expect(
-      await program.account.signatureConstraint.fetch(employeeConstraint)
+      await program.account.eSignaturePacket.fetch(employeePacket)
     ).toEqual(
       expect.objectContaining({
         agreement,
-        index: 1,
         signer: employeeSigner.publicKey,
-        used: true,
+        identifier: "employee",
+        encryptedCid: cid,
+        signed: true,
       })
     );
 
@@ -339,30 +365,105 @@ describe("ESignature Contract", () => {
     );
   });
 
-  it("fails to sign a signature packet when the agreement is no longer pending", async () => {
-    const [packet] = await PublicKey.findProgramAddress(
-      [
-        anchor.utils.bytes.utf8.encode("packet"),
-        anchor.utils.bytes.utf8.encode("1"),
-        employeeSigner.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
+  // it("fails to sign a signature packet when its already been signed", async () => {
+  //   const [packet] = await PublicKey.findProgramAddress(
+  //     [
+  //       anchor.utils.bytes.utf8.encode("packet"),
+  //       anchor.utils.bytes.utf8.encode("1"),
+  //       managerSigner.publicKey.toBuffer(),
+  //     ],
+  //     program.programId
+  //   );
 
-    expect(
-      async () =>
-        await employeeProgram.methods
-          .signSignaturePacket(1, cid)
-          .accounts({
-            packet,
-            agreement,
-            constraint: employeeConstraint,
-            profile: employeeProfile,
-            signer: employeeSigner.publicKey,
-          })
-          .rpc()
-    ).rejects.toThrow("NonPendingAgreement");
-  });
+  //   expect(
+  //     async () =>
+  //       await managerProgram.methods
+  //         .signSignaturePacket(0, cid)
+  //         .accounts({
+  //           packet,
+  //           agreement,
+  //           constraint: managerConstraint,
+  //           profile: managerProfile,
+  //           signer: managerSigner.publicKey,
+  //         })
+  //         .rpc()
+  //   ).rejects.toThrow("UsedConstraint");
+  // });
+
+  // it("can sign a signature packet when there is no signer constraint", async () => {
+  //   const [packet] = await PublicKey.findProgramAddress(
+  //     [
+  //       anchor.utils.bytes.utf8.encode("packet"),
+  //       anchor.utils.bytes.utf8.encode("0"),
+  //       employeeSigner.publicKey.toBuffer(),
+  //     ],
+  //     program.programId
+  //   );
+
+  //   await employeeProgram.methods
+  //     .signSignaturePacket(1, cid)
+  //     .accounts({
+  //       packet,
+  //       agreement,
+  //       constraint: employeeConstraint,
+  //       profile: employeeProfile,
+  //       signer: employeeSigner.publicKey,
+  //     })
+  //     .rpc();
+
+  //   expect(await program.account.eSignaturePacket.fetch(packet)).toEqual(
+  //     expect.objectContaining({
+  //       agreement,
+  //       signer: employeeSigner.publicKey,
+  //       index: 1,
+  //       signed: true,
+  //     })
+  //   );
+
+  //   expect(
+  //     await program.account.signatureConstraint.fetch(employeeConstraint)
+  //   ).toEqual(
+  //     expect.objectContaining({
+  //       agreement,
+  //       index: 1,
+  //       signer: employeeSigner.publicKey,
+  //       used: true,
+  //     })
+  //   );
+
+  //   expect(await program.account.profile.fetch(employeeProfile)).toEqual(
+  //     expect.objectContaining({
+  //       owner: employeeSigner.publicKey,
+  //       agreementsCount: 0,
+  //       signaturesCount: 1,
+  //     })
+  //   );
+  // });
+
+  // it("fails to sign a signature packet when the agreement is no longer pending", async () => {
+  //   const [packet] = await PublicKey.findProgramAddress(
+  //     [
+  //       anchor.utils.bytes.utf8.encode("packet"),
+  //       anchor.utils.bytes.utf8.encode("1"),
+  //       employeeSigner.publicKey.toBuffer(),
+  //     ],
+  //     program.programId
+  //   );
+
+  //   expect(
+  //     async () =>
+  //       await employeeProgram.methods
+  //         .signSignaturePacket(1, cid)
+  //         .accounts({
+  //           packet,
+  //           agreement,
+  //           constraint: employeeConstraint,
+  //           profile: employeeProfile,
+  //           signer: employeeSigner.publicKey,
+  //         })
+  //         .rpc()
+  //   ).rejects.toThrow("NonPendingAgreement");
+  // });
 });
 
 async function createAccount() {

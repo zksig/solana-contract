@@ -6,4 +6,7 @@ pub enum ZKSigError {
     NonPendingAgreement,
     MismatchedSigner,
     UsedConstraint,
+    MismatchedAgreement,
+    MismatchedConstraint,
+    SignatureVerificationError,
 }
